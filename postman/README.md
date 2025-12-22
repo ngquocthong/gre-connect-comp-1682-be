@@ -5,7 +5,8 @@ This folder contains the Postman collection and environment files for testing th
 ## Files
 
 - `GreConnect.postman_collection.json` - Complete API collection with all endpoints
-- `GreConnect.postman_environment.json` - Environment variables for the collection
+- `GreConnect.postman_environment.json` - Environment variables (Local: localhost:5000)
+- `GreConnect.postman_environment_production.json` - Environment variables (Production: gre-be.iotek.dev)
 
 ## How to Import
 
@@ -138,20 +139,20 @@ npm run seed
 
 ## Environment Variables
 
-| Variable | Description | Auto-populated |
-|----------|-------------|----------------|
-| `baseUrl` | API base URL (default: http://localhost:5000/api) | No |
-| `accessToken` | JWT token for authentication | Yes (on login) |
-| `userId` | Current user ID | Yes (on login) |
-| `conversationId` | Last accessed conversation ID | Yes |
-| `messageId` | Last accessed message ID | Yes |
-| `questionId` | Last accessed question ID | Yes |
-| `answerId` | Last accessed answer ID | Yes |
-| `resourceId` | Last accessed resource ID | Yes |
-| `eventId` | Last accessed event ID | Yes |
-| `notificationId` | Last accessed notification ID | Yes |
-| `callId` | Last accessed call ID | Yes |
-| `pendingUserId` | Pending user ID for approval | Yes |
+| Variable         | Description                                       | Auto-populated |
+| ---------------- | ------------------------------------------------- | -------------- |
+| `baseUrl`        | API base URL (default: http://localhost:5000/api) | No             |
+| `accessToken`    | JWT token for authentication                      | Yes (on login) |
+| `userId`         | Current user ID                                   | Yes (on login) |
+| `conversationId` | Last accessed conversation ID                     | Yes            |
+| `messageId`      | Last accessed message ID                          | Yes            |
+| `questionId`     | Last accessed question ID                         | Yes            |
+| `answerId`       | Last accessed answer ID                           | Yes            |
+| `resourceId`     | Last accessed resource ID                         | Yes            |
+| `eventId`        | Last accessed event ID                            | Yes            |
+| `notificationId` | Last accessed notification ID                     | Yes            |
+| `callId`         | Last accessed call ID                             | Yes            |
+| `pendingUserId`  | Pending user ID for approval                      | Yes            |
 
 ## Test Scripts
 
@@ -163,11 +164,11 @@ Each request includes test scripts that:
 
 ## Role-Based Access
 
-| Role | Permissions |
-|------|-------------|
+| Role        | Permissions                                 |
+| ----------- | ------------------------------------------- |
 | **student** | Basic CRUD on own resources, Q&A, messaging |
-| **teacher** | + Create events, manage questions |
-| **staff** | + User management, approve/reject users |
+| **teacher** | + Create events, manage questions           |
+| **staff**   | + User management, approve/reject users     |
 
 ## Tips
 
@@ -175,4 +176,3 @@ Each request includes test scripts that:
 2. **Use Collection Runner** to run all tests at once
 3. **Check Console** for detailed request/response logs
 4. **Update baseUrl** if server runs on different port
-

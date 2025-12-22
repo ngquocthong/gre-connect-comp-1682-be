@@ -23,6 +23,12 @@ const createMessage = async (req, res) => {
       attachments
     });
 
+    // Emit socket event for real-time update
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`conversation:${conversationId}`).emit('new-message', message);
+    }
+
     res.status(201).json(message);
   } catch (error) {
     if (error.message === 'Conversation not found') {
@@ -38,6 +44,16 @@ const createMessage = async (req, res) => {
 const deleteMessage = async (req, res) => {
   try {
     const message = await messageService.deleteMessage(req.params.id, req.user._id);
+
+    // Emit socket event for real-time update
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`conversation:${message.conversationId}`).emit('message-deleted', {
+        messageId: message._id,
+        conversationId: message.conversationId
+      });
+    }
+
     res.json(message);
   } catch (error) {
     if (error.message === 'Message not found') {
@@ -52,8 +68,19 @@ const deleteMessage = async (req, res) => {
 
 const markAsRead = async (req, res) => {
   try {
-    const { messageIds } = req.body;
+    const { messageIds, conversationId } = req.body;
     await messageService.markAsRead(req.user._id, messageIds);
+
+    // Emit socket event for real-time update
+    const io = req.app.get('io');
+    if (io && conversationId) {
+      io.to(`conversation:${conversationId}`).emit('messages-read', {
+        messageIds,
+        userId: req.user._id,
+        conversationId
+      });
+    }
+
     res.json({ message: 'Messages marked as read' });
   } catch (error) {
     res.status(500).json({ message: error.message });

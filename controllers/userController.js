@@ -24,18 +24,21 @@ const getUser = async (req, res) => {
 
 const updateUser = async (req, res) => {
   try {
-    const { firstName, lastName, email, username, role } = req.body;
-    const user = await userService.updateUser(req.params.id, {
-      firstName,
-      lastName,
-      email,
-      username,
-      role
-    });
+    const { firstName, lastName, email, username, role, bio, profilePicture, isActive } = req.body;
+    const currentUserId = req.user._id.toString();
+
+    const user = await userService.updateUser(
+      req.params.id,
+      { firstName, lastName, email, username, role, bio, profilePicture, isActive },
+      currentUserId
+    );
     res.json(user);
   } catch (error) {
     if (error.message === 'User not found') {
       return res.status(404).json({ message: error.message });
+    }
+    if (error.message === 'Email already in use' || error.message === 'Username already in use') {
+      return res.status(400).json({ message: error.message });
     }
     res.status(500).json({ message: error.message });
   }

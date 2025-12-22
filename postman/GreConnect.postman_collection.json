@@ -357,6 +357,50 @@
           "response": []
         },
         {
+          "name": "Get Users with Filters",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is an array', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users?role=student&search=john",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "student",
+                  "description": "Filter by role: student, teacher, staff, or all"
+                },
+                {
+                  "key": "search",
+                  "value": "john",
+                  "description": "Search by name, email, or username"
+                }
+              ]
+            },
+            "description": "Get users with filters. Requires staff role.\n\nQuery Parameters:\n- role: student | teacher | staff | all\n- search: search term for name/email/username"
+          },
+          "response": []
+        },
+        {
           "name": "Get Pending Users",
           "event": [
             {
@@ -424,7 +468,7 @@
           "response": []
         },
         {
-          "name": "Update User",
+          "name": "Update User (Staff)",
           "event": [
             {
               "listen": "test",
@@ -432,6 +476,11 @@
                 "exec": [
                   "pm.test('Status code is 200', function () {",
                   "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has user data', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('_id');",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -448,14 +497,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"firstName\": \"Updated\",\n  \"lastName\": \"Name\",\n  \"role\": \"student\"\n}"
+              "raw": "{\n  \"firstName\": \"Updated\",\n  \"lastName\": \"Name\",\n  \"email\": \"updated@example.com\",\n  \"username\": \"updateduser\",\n  \"bio\": \"Updated bio description\",\n  \"profilePicture\": \"https://example.com/avatar.jpg\",\n  \"role\": \"student\",\n  \"isActive\": true\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/users/{{userId}}",
               "host": ["{{baseUrl}}"],
               "path": ["users", "{{userId}}"]
             },
-            "description": "Update user by ID. Requires staff role."
+            "description": "Update user by ID. Requires staff role.\n\nFields:\n- firstName (optional)\n- lastName (optional)\n- email (optional, must be unique)\n- username (optional, must be unique)\n- bio (optional)\n- profilePicture (optional)\n- role (optional: student|teacher|staff, staff cannot change own role)\n- isActive (optional: boolean)\n\nErrors:\n- 400: Email/Username already in use\n- 404: User not found"
           },
           "response": []
         },
@@ -2161,6 +2210,192 @@
               "path": ["notifications", "{{notificationId}}"]
             },
             "description": "Delete a notification."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Upload",
+      "description": "File upload endpoints",
+      "item": [
+        {
+          "name": "Upload Single File (Form Data)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has file data', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('url');",
+                  "    pm.expect(jsonData).to.have.property('name');",
+                  "    pm.expect(jsonData).to.have.property('type');",
+                  "    pm.expect(jsonData).to.have.property('size');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "folder",
+                  "value": "messages",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/upload",
+              "host": ["{{baseUrl}}"],
+              "path": ["upload"]
+            },
+            "description": "Upload a single file via multipart/form-data.\n\nForm fields:\n- file: File (required)\n- folder: string (optional) - 'messages', 'profiles', 'resources', etc."
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Multiple Files (Form Data)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has files array', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('files');",
+                  "    pm.expect(jsonData.files).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "folder",
+                  "value": "messages",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/upload/multiple",
+              "host": ["{{baseUrl}}"],
+              "path": ["upload", "multiple"]
+            },
+            "description": "Upload multiple files via multipart/form-data (max 10 files).\n\nForm fields:\n- files: Files (required)\n- folder: string (optional)"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Single File (Base64)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has file data', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('url');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==\",\n  \"name\": \"test.png\",\n  \"type\": \"image/png\",\n  \"folder\": \"messages\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/upload/base64",
+              "host": ["{{baseUrl}}"],
+              "path": ["upload", "base64"]
+            },
+            "description": "Upload a single file via base64 encoded string.\n\nRequest body:\n- data: string (required) - base64 or data URI\n- name: string (optional) - filename\n- type: string (optional) - MIME type\n- folder: string (optional)"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Multiple Files (Base64)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has files array', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('files');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"files\": [\n    {\n      \"data\": \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==\",\n      \"name\": \"image1.png\",\n      \"type\": \"image/png\"\n    },\n    {\n      \"data\": \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==\",\n      \"name\": \"image2.png\",\n      \"type\": \"image/png\"\n    }\n  ],\n  \"folder\": \"messages\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/upload/base64/multiple",
+              "host": ["{{baseUrl}}"],
+              "path": ["upload", "base64", "multiple"]
+            },
+            "description": "Upload multiple files via base64 encoded strings.\n\nRequest body:\n- files: Array of { data, name, type }\n- folder: string (optional)"
           },
           "response": []
         }
