@@ -1175,7 +1175,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["calls", "initiate"]
             },
-            "description": "Initiate a new audio/video call."
+            "description": "Initiate a new audio/video call.\n\nRequest body:\n- conversationId: string (required)\n- type: 'audio' | 'video' (required)\n\nResponse:\n- call: Call object\n- agoraToken: string (RTC token for Agora)\n- channelName: string (format: conversation_<id>)\n- uid: number (user ID for Agora)\n- appId: string (Agora App ID)"
           },
           "response": []
         },
@@ -1202,7 +1202,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["calls", "{{callId}}", "join"]
             },
-            "description": "Join an ongoing call."
+            "description": "Join an ongoing call.\n\nResponse:\n- call: Call object\n- agoraToken: string (RTC token for Agora)\n- channelName: string\n- uid: number\n- appId: string"
           },
           "response": []
         },
@@ -1229,7 +1229,93 @@
               "host": ["{{baseUrl}}"],
               "path": ["calls", "{{callId}}", "end"]
             },
-            "description": "End a call."
+            "description": "End a call. Any participant can end the call."
+          },
+          "response": []
+        },
+        {
+          "name": "Leave Call",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/calls/{{callId}}/leave",
+              "host": ["{{baseUrl}}"],
+              "path": ["calls", "{{callId}}", "leave"]
+            },
+            "description": "Leave a call (for group calls). If last participant leaves, call ends automatically."
+          },
+          "response": []
+        },
+        {
+          "name": "Decline Call",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/calls/{{callId}}/decline",
+              "host": ["{{baseUrl}}"],
+              "path": ["calls", "{{callId}}", "decline"]
+            },
+            "description": "Decline an incoming call."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Active Call",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has hasActiveCall', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('hasActiveCall');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/calls/active/{{conversationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["calls", "active", "{{conversationId}}"]
+            },
+            "description": "Get active call for a conversation (if any). Returns Agora token if there's an active call."
           },
           "response": []
         },
