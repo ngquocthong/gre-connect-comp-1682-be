@@ -1,11 +1,12 @@
 const express = require('express');
 const { body } = require('express-validator');
-const { 
-  register, 
-  login, 
-  forgotPassword, 
-  getProfile, 
-  updateProfile, 
+const {
+  register,
+  login,
+  forgotPassword,
+  resetPassword,
+  getProfile,
+  updateProfile,
   changePassword,
   updateFCMToken
 } = require('../controllers/authController');
@@ -33,6 +34,12 @@ router.post('/forgot-password', [
   body('email').isEmail().normalizeEmail(),
   validateRequest
 ], forgotPassword);
+
+router.post('/reset-password', [
+  body('token').notEmpty(),
+  body('password').isLength({ min: 6 }),
+  validateRequest
+], resetPassword);
 
 router.get('/profile', protect, getProfile);
 

@@ -1,4 +1,6 @@
 const userService = require('../services/userService');
+const fcmService = require('../services/fcmService');
+const emailService = require('../services/emailService');
 
 const getUsers = async (req, res) => {
   try {
@@ -83,6 +85,15 @@ const getPendingUsers = async (req, res) => {
 const approveUser = async (req, res) => {
   try {
     const user = await userService.approveUser(req.params.id);
+
+    // Send FCM notification to approved user (in background)
+    fcmService.sendUserApprovedNotification(req.params.id)
+      .catch(err => console.error('FCM notification error:', err.message));
+
+    // Send approval email (in background)
+    emailService.sendAccountApprovedEmail(user)
+      .catch(err => console.error('Approval email error:', err.message));
+
     res.json({ message: 'User approved successfully', user });
   } catch (error) {
     if (error.message === 'User not found') {
@@ -94,6 +105,15 @@ const approveUser = async (req, res) => {
 
 const rejectUser = async (req, res) => {
   try {
+    const { reason } = req.body;
+
+    // Get user before deleting to send email
+    const user = await userService.getUserById(req.params.id);
+
+    // Send rejection email before deleting (in background)
+    emailService.sendAccountRejectedEmail(user, reason)
+      .catch(err => console.error('Rejection email error:', err.message));
+
     await userService.rejectUser(req.params.id);
     res.json({ message: 'User rejected and removed' });
   } catch (error) {

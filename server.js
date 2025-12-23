@@ -7,6 +7,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
 const { initializeFirebase } = require('./config/firebase');
+const emailService = require('./services/emailService');
 const socketHandler = require('./socket/socketHandler');
 
 const app = express();
@@ -20,6 +21,7 @@ const io = new Server(server, {
 
 connectDB();
 initializeFirebase();
+emailService.initialize();
 
 // Make io accessible via req.app.get('io') in routes
 app.set('io', io);

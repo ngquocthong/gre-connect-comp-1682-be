@@ -83,7 +83,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["auth", "register"]
             },
-            "description": "Register a new user account. Account will be pending approval by staff."
+            "description": "Register a new user account. Account will be pending approval by staff.\n\nActions:\n- Creates new user with isPending=true, isActive=false\n- Sends welcome email to user"
           },
           "response": []
         },
@@ -173,7 +173,51 @@
               "host": ["{{baseUrl}}"],
               "path": ["auth", "forgot-password"]
             },
-            "description": "Request password reset email."
+            "description": "Request password reset email. Sends an email with reset link if the email exists in the system."
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Password reset successful', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"paste-reset-token-from-email-link-here\",\n  \"password\": \"newpassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/reset-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "reset-password"]
+            },
+            "description": "Reset password using the token from the reset email.\n\nRequest body:\n- token: string (required) - Token from reset email link\n- password: string (required) - New password (min 6 characters)\n\nThe token expires after 1 hour."
           },
           "response": []
         },
@@ -585,7 +629,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["users", "{{pendingUserId}}", "approve"]
             },
-            "description": "Approve pending user. Requires staff role."
+            "description": "Approve pending user. Requires staff role.\n\nActions:\n- Sets user status to approved and active\n- Sends approval email to user\n- Sends FCM push notification to user"
           },
           "response": []
         },
@@ -606,13 +650,22 @@
           ],
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Account information could not be verified.\"\n}"
+            },
             "url": {
               "raw": "{{baseUrl}}/users/{{pendingUserId}}/reject",
               "host": ["{{baseUrl}}"],
               "path": ["users", "{{pendingUserId}}", "reject"]
             },
-            "description": "Reject pending user. Requires staff role."
+            "description": "Reject pending user. Requires staff role.\n\nOptional request body:\n- reason: string - Reason for rejection (will be included in rejection email)"
           },
           "response": []
         },

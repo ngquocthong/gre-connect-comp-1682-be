@@ -43,12 +43,12 @@ class FCMService {
       return { success: true, messageId: response };
     } catch (error) {
       console.error('Error sending push notification:', error.message);
-      
-      if (error.code === 'messaging/invalid-registration-token' || 
-          error.code === 'messaging/registration-token-not-registered') {
+
+      if (error.code === 'messaging/invalid-registration-token' ||
+        error.code === 'messaging/registration-token-not-registered') {
         await User.findByIdAndUpdate(userId, { $unset: { fcmToken: 1 } });
       }
-      
+
       return { success: false, error: error.message };
     }
   }
@@ -61,7 +61,7 @@ class FCMService {
         return { success: false, message: 'Firebase not configured' };
       }
 
-      const users = await User.find({ 
+      const users = await User.find({
         _id: { $in: userIds },
         fcmToken: { $exists: true, $ne: null }
       }).select('fcmToken');
@@ -103,8 +103,8 @@ class FCMService {
         response.responses.forEach((resp, idx) => {
           if (!resp.success) {
             const error = resp.error;
-            if (error.code === 'messaging/invalid-registration-token' || 
-                error.code === 'messaging/registration-token-not-registered') {
+            if (error.code === 'messaging/invalid-registration-token' ||
+              error.code === 'messaging/registration-token-not-registered') {
               failedTokens.push(tokens[idx]);
             }
           }
@@ -131,7 +131,7 @@ class FCMService {
 
   async sendPushNotificationByRole(role, notification) {
     try {
-      const users = await User.find({ 
+      const users = await User.find({
         role,
         fcmToken: { $exists: true, $ne: null }
       }).select('_id');
@@ -150,7 +150,7 @@ class FCMService {
 
   async sendPushNotificationToAll(notification) {
     try {
-      const users = await User.find({ 
+      const users = await User.find({
         fcmToken: { $exists: true, $ne: null }
       }).select('_id');
 
@@ -164,6 +164,105 @@ class FCMService {
       console.error('Error sending push notifications to all users:', error.message);
       return { success: false, error: error.message };
     }
+  }
+
+  // ==========================================
+  // Specific Notification Types
+  // ==========================================
+
+  /**
+   * Send notification for new message
+   */
+  async sendNewMessageNotification(recipientId, senderName, messagePreview, conversationId) {
+    const preview = messagePreview.length > 100
+      ? messagePreview.substring(0, 100) + '...'
+      : messagePreview;
+
+    return this.sendPushNotification(recipientId, {
+      title: `New message from ${senderName}`,
+      body: preview,
+      data: {
+        type: 'new_message',
+        conversationId: conversationId.toString(),
+        senderName
+      }
+    });
+  }
+
+  /**
+   * Send notification for new answer to a question
+   */
+  async sendNewAnswerNotification(questionOwnerId, answererName, questionTitle, questionId) {
+    const title = questionTitle.length > 50
+      ? questionTitle.substring(0, 50) + '...'
+      : questionTitle;
+
+    return this.sendPushNotification(questionOwnerId, {
+      title: `${answererName} answered your question`,
+      body: title,
+      data: {
+        type: 'new_answer',
+        questionId: questionId.toString(),
+        answererName
+      }
+    });
+  }
+
+  /**
+   * Send notification for incoming call
+   */
+  async sendIncomingCallNotification(recipientId, callerName, callType, conversationId) {
+    return this.sendPushNotification(recipientId, {
+      title: `Incoming ${callType} call`,
+      body: `${callerName} is calling you`,
+      data: {
+        type: 'incoming_call',
+        callType,
+        conversationId: conversationId.toString(),
+        callerName
+      }
+    });
+  }
+
+  /**
+   * Send notification for event reminder
+   */
+  async sendEventReminderNotification(userId, eventTitle, eventId, startTime) {
+    return this.sendPushNotification(userId, {
+      title: 'Event Reminder',
+      body: `${eventTitle} is starting soon!`,
+      data: {
+        type: 'event_reminder',
+        eventId: eventId.toString(),
+        startTime
+      }
+    });
+  }
+
+  /**
+   * Send notification for user approval
+   */
+  async sendUserApprovedNotification(userId) {
+    return this.sendPushNotification(userId, {
+      title: 'Account Approved!',
+      body: 'Your account has been approved. You can now use all features.',
+      data: {
+        type: 'account_approved'
+      }
+    });
+  }
+
+  /**
+   * Send notification for new resource
+   */
+  async sendNewResourceNotification(userIds, uploaderName, resourceTitle) {
+    return this.sendBulkPushNotifications(userIds, {
+      title: 'New Resource Available',
+      body: `${uploaderName} shared: ${resourceTitle}`,
+      data: {
+        type: 'new_resource'
+      }
+    });
   }
 }
 
