@@ -2455,6 +2455,400 @@
       ]
     },
     {
+      "name": "AI Chat",
+      "description": "AI Chat endpoints powered by Dify",
+      "item": [
+        {
+          "name": "Get or Create AI Conversation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has conversation', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('conversation');",
+                  "    pm.expect(jsonData.conversation).to.have.property('_id');",
+                  "    pm.environment.set('aiConversationId', jsonData.conversation._id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ai-chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["ai-chat"]
+            },
+            "description": "Get or create AI conversation for current user. Every user always has an AI chatbox available."
+          },
+          "response": []
+        },
+        {
+          "name": "Get AI Service Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has available status', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('available');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ai-chat/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["ai-chat", "status"]
+            },
+            "description": "Check if AI service is available and get app info."
+          },
+          "response": []
+        },
+        {
+          "name": "Get All AI Conversations",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has conversations array', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('conversations');",
+                  "    pm.expect(jsonData.conversations).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ai-chat/conversations?limit=20&skip=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["ai-chat", "conversations"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "skip",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Get all AI conversations for current user with pagination."
+          },
+          "response": []
+        },
+        {
+          "name": "Create New AI Conversation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has conversation', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('conversation');",
+                  "    pm.environment.set('aiConversationId', jsonData.conversation._id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"My New AI Chat\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ai-chat/conversations",
+              "host": ["{{baseUrl}}"],
+              "path": ["ai-chat", "conversations"]
+            },
+            "description": "Create a new AI conversation."
+          },
+          "response": []
+        },
+        {
+          "name": "Get AI Conversation by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has conversation', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('conversation');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ai-chat/conversations/{{aiConversationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["ai-chat", "conversations", "{{aiConversationId}}"]
+            },
+            "description": "Get specific AI conversation by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Send Message to AI",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has AI response', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('conversation');",
+                  "    if (jsonData.aiResponse) {",
+                  "        pm.expect(jsonData.aiResponse).to.have.property('answer');",
+                  "        if (jsonData.aiResponse.messageId) {",
+                  "            pm.environment.set('aiMessageId', jsonData.aiResponse.messageId);",
+                  "        }",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Xin chào, bạn có thể giúp tôi học GRE không?\",\n  \"inputs\": {}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ai-chat/conversations/{{aiConversationId}}/messages",
+              "host": ["{{baseUrl}}"],
+              "path": ["ai-chat", "conversations", "{{aiConversationId}}", "messages"]
+            },
+            "description": "Send a message to AI and get response.\n\nRequest body:\n- message: string (required) - User's message\n- inputs: object (optional) - Additional input variables for Dify"
+          },
+          "response": []
+        },
+        {
+          "name": "Update AI Conversation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"GRE Study Chat\",\n  \"isPinned\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ai-chat/conversations/{{aiConversationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["ai-chat", "conversations", "{{aiConversationId}}"]
+            },
+            "description": "Update conversation title or pin status."
+          },
+          "response": []
+        },
+        {
+          "name": "Clear AI Conversation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ai-chat/conversations/{{aiConversationId}}/clear",
+              "host": ["{{baseUrl}}"],
+              "path": ["ai-chat", "conversations", "{{aiConversationId}}", "clear"]
+            },
+            "description": "Clear all messages in a conversation but keep the conversation."
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Feedback for AI Message",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": \"like\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ai-chat/messages/{{aiMessageId}}/feedback",
+              "host": ["{{baseUrl}}"],
+              "path": ["ai-chat", "messages", "{{aiMessageId}}", "feedback"]
+            },
+            "description": "Submit feedback for an AI message. Rating can be 'like' or 'dislike'."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Suggested Questions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has suggestions', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('suggestions');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ai-chat/messages/{{aiMessageId}}/suggestions",
+              "host": ["{{baseUrl}}"],
+              "path": ["ai-chat", "messages", "{{aiMessageId}}", "suggestions"]
+            },
+            "description": "Get suggested follow-up questions for a message."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete AI Conversation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ai-chat/conversations/{{aiConversationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["ai-chat", "conversations", "{{aiConversationId}}"]
+            },
+            "description": "Delete an AI conversation."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Health Check",
       "description": "API health check",
       "item": [

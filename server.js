@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
 const { initializeFirebase } = require('./config/firebase');
 const emailService = require('./services/emailService');
+const difyService = require('./services/difyService');
 const socketHandler = require('./socket/socketHandler');
 
 const app = express();
@@ -22,6 +23,7 @@ const io = new Server(server, {
 connectDB();
 initializeFirebase();
 emailService.initialize();
+difyService.initialize();
 
 // Make io accessible via req.app.get('io') in routes
 app.set('io', io);
@@ -76,6 +78,7 @@ app.use('/api/events', require('./routes/events'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/calls', require('./routes/calls'));
 app.use('/api/upload', require('./routes/upload'));
+app.use('/api/ai-chat', require('./routes/aiChat'));
 
 app.get('/api/health', (req, res) => {
   res.json({

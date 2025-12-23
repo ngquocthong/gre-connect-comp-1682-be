@@ -10,7 +10,8 @@
     "seed": "node scripts/seed.js",
     "clear": "node scripts/clearDB.js",
     "test:fcm": "node scripts/testFCM.js",
-    "test:email": "node scripts/testEmail.js"
+    "test:email": "node scripts/testEmail.js",
+    "test:dify": "node scripts/testDify.js"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.6",
