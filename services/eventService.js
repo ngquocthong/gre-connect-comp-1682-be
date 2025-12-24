@@ -105,8 +105,8 @@ class EventService {
       throw new Error('Event not found');
     }
 
-    if (event.createdBy.toString() !== userId.toString() && 
-        !['staff'].includes(userRole)) {
+    if (event.createdBy.toString() !== userId.toString() &&
+      !['staff'].includes(userRole)) {
       throw new Error('Access denied');
     }
 
@@ -135,8 +135,8 @@ class EventService {
       throw new Error('Event not found');
     }
 
-    if (event.createdBy.toString() !== userId.toString() && 
-        !['staff'].includes(userRole)) {
+    if (event.createdBy.toString() !== userId.toString() &&
+      !['staff'].includes(userRole)) {
       throw new Error('Access denied');
     }
 

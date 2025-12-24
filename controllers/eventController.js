@@ -33,9 +33,9 @@ const createEvent = async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     eventDate.setHours(0, 0, 0, 0);
-    
+
     if (eventDate < today) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Cannot create events in the past',
         field: 'date'
       });
@@ -44,12 +44,12 @@ const createEvent = async (req, res) => {
     // Validate time format and logic
     const [startHour, startMin] = startTime.split(':').map(Number);
     const [endHour, endMin] = endTime.split(':').map(Number);
-    
+
     const startMinutes = startHour * 60 + startMin;
     const endMinutes = endHour * 60 + endMin;
-    
+
     if (endMinutes <= startMinutes) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'End time must be after start time',
         field: 'endTime'
       });
@@ -75,24 +75,24 @@ const createEvent = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Create event error:', error);
-    
+
     if (error.message === 'Only teachers and staff can create events') {
       return res.status(403).json({ message: error.message });
     }
-    
+
     // Handle Mongoose validation errors
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors).map(err => ({
         field: err.path,
         message: err.message
       }));
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Validation error',
-        errors 
+        errors
       });
     }
 
-    res.status(500).json({ 
+    res.status(500).json({
       message: error.message || 'Failed to create event',
       ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
     });

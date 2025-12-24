@@ -1,10 +1,10 @@
 const express = require('express');
 const { body } = require('express-validator');
-const { 
-  getEvents, 
-  getEvent, 
-  createEvent, 
-  updateEvent, 
+const {
+  getEvents,
+  getEvent,
+  createEvent,
+  updateEvent,
   deleteEvent
 } = require('../controllers/eventController');
 const { protect } = require('../middleware/auth');
