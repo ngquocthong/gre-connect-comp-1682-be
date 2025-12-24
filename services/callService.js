@@ -41,9 +41,15 @@ class CallService {
     // Populate initiator info
     await call.populate('initiatorId', 'firstName lastName profilePicture username');
 
-    // Send FCM notification to other participants
+    // Send FCM notification to other participants (non-blocking)
+    // This will not prevent the call from being created if it fails
     this.notifyCallParticipants(conversationId, userId, type, call._id)
-      .catch(err => console.error('FCM call notification error:', err));
+      .catch(err => {
+        console.error('FCM call notification error (non-blocking):', err.message);
+        // Don't throw - allow call to proceed even if notification fails
+      });
+
+    console.log(`✅ Call ${call._id} initiated successfully. Type: ${type}, Channel: ${channelName}`);
 
     return {
       call,
@@ -208,32 +214,59 @@ class CallService {
   async notifyCallParticipants(conversationId, callerId, callType, callId) {
     try {
       const conversation = await Conversation.findById(conversationId)
-        .populate('participants', '_id firstName lastName');
+        .populate('participants', '_id firstName lastName fcmToken');
 
-      if (!conversation) return;
+      if (!conversation) {
+        console.warn(`Conversation ${conversationId} not found for call notification`);
+        return;
+      }
 
       const caller = await User.findById(callerId);
-      if (!caller) return;
+      if (!caller) {
+        console.warn(`Caller ${callerId} not found`);
+        return;
+      }
 
       const callerName = `${caller.firstName} ${caller.lastName}`;
 
       // Notify all participants except caller
-      const recipientIds = conversation.participants
-        .filter(p => p._id.toString() !== callerId.toString())
-        .map(p => p._id);
+      const recipients = conversation.participants.filter(
+        p => p._id.toString() !== callerId.toString()
+      );
 
-      await Promise.all(
-        recipientIds.map(recipientId =>
-          fcmService.sendIncomingCallNotification(
+      if (recipients.length === 0) {
+        console.log(`No recipients to notify for call ${callId}`);
+        return;
+      }
+
+      console.log(`Sending call notification to ${recipients.length} recipient(s) for call ${callId}`);
+
+      // Send notifications and log results
+      const results = await Promise.allSettled(
+        recipients.map(recipient => {
+          const recipientId = recipient._id;
+          console.log(`Attempting to send FCM to user ${recipientId} (has token: ${!!recipient.fcmToken})`);
+
+          return fcmService.sendIncomingCallNotification(
             recipientId,
             callerName,
             callType,
             conversationId
-          ).catch(err => console.error('FCM error:', err))
-        )
+          );
+        })
       );
+
+      // Log results
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          console.error(`FCM notification failed for recipient ${recipients[index]._id}:`, result.reason);
+        } else if (result.value && !result.value.success) {
+          console.warn(`FCM notification failed for recipient ${recipients[index]._id}:`, result.value.message || result.value.error);
+        }
+      });
     } catch (error) {
       console.error('Notify call participants error:', error);
+      console.error('Error stack:', error.stack);
     }
   }
 }

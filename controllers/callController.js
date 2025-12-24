@@ -9,6 +9,8 @@ const initiateCall = async (req, res) => {
   try {
     const { conversationId, type } = req.body;
 
+    console.log(`📞 Initiate call request: conversationId=${conversationId}, type=${type}, caller=${req.user._id}`);
+
     if (!conversationId) {
       return res.status(400).json({ message: 'Conversation ID is required' });
     }
@@ -17,15 +19,29 @@ const initiateCall = async (req, res) => {
       return res.status(400).json({ message: 'Type must be "audio" or "video"' });
     }
 
+    // Verify conversation exists
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found' });
+    }
+
+    // Check if user is a participant
+    const isParticipant = conversation.participants.some(
+      p => p.toString() === req.user._id.toString()
+    );
+    if (!isParticipant) {
+      return res.status(403).json({ message: 'You are not a participant in this conversation' });
+    }
+
     const result = await callService.initiateCall(req.user._id, { conversationId, type });
 
-    // Get conversation participants to notify
-    const conversation = await Conversation.findById(conversationId)
-      .populate('participants', '_id');
+    // Get conversation participants to notify (re-fetch to ensure fresh data)
+    const conversationWithParticipants = await Conversation.findById(conversationId)
+      .populate('participants', '_id firstName lastName profilePicture');
 
     // Emit socket event for incoming call to EACH target user
     const io = req.app.get('io');
-    if (io && conversation) {
+    if (io && conversationWithParticipants) {
       // Build caller object with required fields
       const callerData = {
         _id: req.user._id,
@@ -35,7 +51,8 @@ const initiateCall = async (req, res) => {
       };
 
       // Emit to each participant EXCEPT the caller
-      conversation.participants.forEach(participant => {
+      let socketEmitCount = 0;
+      conversationWithParticipants.participants.forEach(participant => {
         if (participant._id.toString() !== req.user._id.toString()) {
           // Emit to user's personal socket room (user:<userId>)
           io.to(`user:${participant._id}`).emit('incoming-call', {
@@ -44,6 +61,7 @@ const initiateCall = async (req, res) => {
             caller: callerData,
             callId: result.call._id
           });
+          socketEmitCount++;
         }
       });
 
@@ -54,12 +72,21 @@ const initiateCall = async (req, res) => {
         caller: callerData,
         callId: result.call._id
       });
+
+      console.log(`📡 Socket events emitted: ${socketEmitCount} direct + 1 conversation room`);
+    } else {
+      console.warn('⚠️ Socket.IO not available or conversation not found for socket emit');
     }
 
+    console.log(`✅ Call initiated successfully: ${result.call._id}`);
     res.status(201).json(result);
   } catch (error) {
-    console.error('Initiate call error:', error);
-    res.status(500).json({ message: error.message });
+    console.error('❌ Initiate call error:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({
+      message: error.message || 'Failed to initiate call',
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 

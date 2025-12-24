@@ -10,9 +10,31 @@ class FCMService {
         return { success: false, message: 'Firebase not configured' };
       }
 
-      const user = await User.findById(userId).select('fcmToken');
-      if (!user || !user.fcmToken) {
+      // Convert userId to string if it's an ObjectId
+      const userIdStr = userId?.toString ? userId.toString() : userId;
+
+      if (!userIdStr) {
+        console.error('Invalid userId provided to sendPushNotification:', userId);
+        return { success: false, message: 'Invalid user ID' };
+      }
+
+      const user = await User.findById(userIdStr).select('fcmToken firstName lastName email');
+
+      if (!user) {
+        console.error(`User not found: ${userIdStr}`);
+        return { success: false, message: 'User not found' };
+      }
+
+      if (!user.fcmToken) {
+        console.warn(`User ${userIdStr} (${user.email || 'N/A'}) does not have FCM token. Skipping notification.`);
         return { success: false, message: 'User FCM token not found' };
+      }
+
+      // Validate FCM token format (should be a long string)
+      if (typeof user.fcmToken !== 'string' || user.fcmToken.length < 50) {
+        console.error(`Invalid FCM token format for user ${userIdStr}`);
+        await User.findByIdAndUpdate(userIdStr, { $unset: { fcmToken: 1 } });
+        return { success: false, message: 'Invalid FCM token format' };
       }
 
       const message = {
@@ -40,16 +62,26 @@ class FCMService {
       };
 
       const response = await admin.messaging().send(message);
+      console.log(`✅ FCM notification sent successfully to user ${userIdStr} (${user.email || 'N/A'})`);
       return { success: true, messageId: response };
     } catch (error) {
       console.error('Error sending push notification:', error.message);
+      console.error('Error details:', {
+        code: error.code,
+        userId: userId?.toString ? userId.toString() : userId,
+        errorInfo: error.errorInfo || error.message
+      });
 
+      // Handle specific Firebase errors
       if (error.code === 'messaging/invalid-registration-token' ||
-        error.code === 'messaging/registration-token-not-registered') {
-        await User.findByIdAndUpdate(userId, { $unset: { fcmToken: 1 } });
+        error.code === 'messaging/registration-token-not-registered' ||
+        error.code === 'messaging/invalid-argument') {
+        const userIdStr = userId?.toString ? userId.toString() : userId;
+        await User.findByIdAndUpdate(userIdStr, { $unset: { fcmToken: 1 } });
+        console.log(`Removed invalid FCM token for user ${userIdStr}`);
       }
 
-      return { success: false, error: error.message };
+      return { success: false, error: error.message, code: error.code };
     }
   }
 
