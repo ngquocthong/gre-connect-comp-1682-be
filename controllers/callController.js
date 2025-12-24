@@ -1,4 +1,5 @@
 const callService = require('../services/callService');
+const Conversation = require('../models/Conversation');
 
 /**
  * Initiate a new call
@@ -18,14 +19,40 @@ const initiateCall = async (req, res) => {
 
     const result = await callService.initiateCall(req.user._id, { conversationId, type });
 
-    // Emit socket event for incoming call
+    // Get conversation participants to notify
+    const conversation = await Conversation.findById(conversationId)
+      .populate('participants', '_id');
+
+    // Emit socket event for incoming call to EACH target user
     const io = req.app.get('io');
-    if (io) {
+    if (io && conversation) {
+      // Build caller object with required fields
+      const callerData = {
+        _id: req.user._id,
+        firstName: req.user.firstName,
+        lastName: req.user.lastName,
+        profilePicture: req.user.profilePicture
+      };
+
+      // Emit to each participant EXCEPT the caller
+      conversation.participants.forEach(participant => {
+        if (participant._id.toString() !== req.user._id.toString()) {
+          // Emit to user's personal socket room (user:<userId>)
+          io.to(`user:${participant._id}`).emit('incoming-call', {
+            conversationId: conversationId,
+            type: type,
+            caller: callerData,
+            callId: result.call._id
+          });
+        }
+      });
+
+      // Also emit to conversation room for clients already listening there
       io.to(`conversation:${conversationId}`).emit('incoming-call', {
-        call: result.call,
-        callerId: req.user._id,
-        callerName: `${req.user.firstName} ${req.user.lastName}`,
-        callType: type
+        conversationId: conversationId,
+        type: type,
+        caller: callerData,
+        callId: result.call._id
       });
     }
 

@@ -9,7 +9,7 @@ const socketHandler = (io) => {
   io.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth.token;
-      
+
       if (!token) {
         return next(new Error('Authentication error'));
       }
@@ -33,6 +33,10 @@ const socketHandler = (io) => {
     console.log('User connected:', socket.userId);
 
     userSockets.set(socket.userId, socket.id);
+
+    // Auto-join user to their personal room for direct notifications (incoming calls, etc.)
+    socket.join(`user:${socket.userId}`);
+    console.log(`User ${socket.userId} joined personal room user:${socket.userId}`);
 
     socket.on('join-conversation', (conversationId) => {
       socket.join(`conversation:${conversationId}`);
@@ -107,61 +111,115 @@ const socketHandler = (io) => {
       }
     });
 
+    // Join a call room (for receiving call-specific events)
+    socket.on('join-call', (callId) => {
+      socket.join(`call:${callId}`);
+      console.log(`User ${socket.userId} joined call room call:${callId}`);
+    });
+
+    socket.on('leave-call', (callId) => {
+      socket.leave(`call:${callId}`);
+      console.log(`User ${socket.userId} left call room call:${callId}`);
+    });
+
+    // Legacy socket-based call initiate (kept for backward compatibility)
     socket.on('call-initiate', (data) => {
-      const { conversationId, type, participants } = data;
+      const { conversationId, type, participants, callId } = data;
 
       participants.forEach(participantId => {
-        const participantSocketId = userSockets.get(participantId);
-        if (participantSocketId && participantId !== socket.userId) {
-          io.to(participantSocketId).emit('incoming-call', {
+        if (participantId !== socket.userId) {
+          // Emit to user's personal room
+          io.to(`user:${participantId}`).emit('incoming-call', {
             conversationId,
             type,
             caller: {
-              id: socket.userId,
-              name: `${socket.user.firstName} ${socket.user.lastName}`,
-              avatar: socket.user.profilePicture
-            }
+              _id: socket.userId,
+              firstName: socket.user.firstName,
+              lastName: socket.user.lastName,
+              profilePicture: socket.user.profilePicture
+            },
+            callId: callId
           });
         }
       });
     });
 
     socket.on('call-accept', (data) => {
-      const { conversationId, callerId } = data;
-      const callerSocketId = userSockets.get(callerId);
+      const { conversationId, callerId, callId } = data;
 
-      if (callerSocketId) {
-        io.to(callerSocketId).emit('call-accepted', {
-          conversationId,
-          acceptedBy: socket.userId
+      // Notify caller via their personal room
+      io.to(`user:${callerId}`).emit('call-accepted', {
+        conversationId,
+        callId,
+        acceptedBy: {
+          _id: socket.userId,
+          firstName: socket.user.firstName,
+          lastName: socket.user.lastName,
+          profilePicture: socket.user.profilePicture
+        }
+      });
+
+      // Also emit to call room
+      if (callId) {
+        io.to(`call:${callId}`).emit('user-joined-call', {
+          callId,
+          user: {
+            _id: socket.userId,
+            firstName: socket.user.firstName,
+            lastName: socket.user.lastName,
+            profilePicture: socket.user.profilePicture
+          }
         });
       }
     });
 
     socket.on('call-reject', (data) => {
-      const { conversationId, callerId } = data;
-      const callerSocketId = userSockets.get(callerId);
+      const { conversationId, callerId, callId } = data;
 
-      if (callerSocketId) {
-        io.to(callerSocketId).emit('call-rejected', {
-          conversationId,
-          rejectedBy: socket.userId
+      // Notify caller via their personal room
+      io.to(`user:${callerId}`).emit('call-rejected', {
+        conversationId,
+        callId,
+        rejectedBy: {
+          _id: socket.userId,
+          firstName: socket.user.firstName,
+          lastName: socket.user.lastName
+        }
+      });
+
+      // Also emit to call room
+      if (callId) {
+        io.to(`call:${callId}`).emit('call-declined', {
+          callId,
+          declinedBy: socket.userId
         });
       }
     });
 
     socket.on('call-end', (data) => {
-      const { conversationId, participants } = data;
+      const { conversationId, callId, participants } = data;
 
-      participants.forEach(participantId => {
-        const participantSocketId = userSockets.get(participantId);
-        if (participantSocketId && participantId !== socket.userId) {
-          io.to(participantSocketId).emit('call-ended', {
-            conversationId,
-            endedBy: socket.userId
-          });
-        }
-      });
+      // Emit to call room
+      if (callId) {
+        io.to(`call:${callId}`).emit('call-ended', {
+          callId,
+          conversationId,
+          endedBy: socket.userId
+        });
+      }
+
+      // Also notify each participant directly
+      if (participants) {
+        participants.forEach(participantId => {
+          if (participantId !== socket.userId) {
+            io.to(`user:${participantId}`).emit('call-ended', {
+              callId,
+              conversationId,
+              endedBy: socket.userId
+            });
+          }
+        });
+      }
     });
 
     socket.on('disconnect', () => {
