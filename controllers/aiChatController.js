@@ -10,7 +10,7 @@ const getOrCreateConversation = async (req, res) => {
   try {
     const userId = req.user._id;
     const conversation = await AIConversation.getOrCreateForUser(userId);
-    
+
     res.json({
       conversation: {
         _id: conversation._id,
@@ -40,9 +40,9 @@ const getAllConversations = async (req, res) => {
     const userId = req.user._id;
     const { limit = 20, skip = 0 } = req.query;
 
-    const conversations = await AIConversation.find({ 
-      userId, 
-      isActive: true 
+    const conversations = await AIConversation.find({
+      userId,
+      isActive: true
     })
       .select('_id title isPinned lastMessageAt metadata.totalMessages createdAt')
       .sort({ isPinned: -1, lastMessageAt: -1 })
@@ -152,12 +152,17 @@ const sendMessage = async (req, res) => {
 
     // Check if AI service is available
     if (!difyService.isAvailable()) {
+      console.warn(`⚠️  AI Chat: Dify service not available for user ${userId}`);
+      console.warn(`   Check: DIFY_API_KEY=${process.env.DIFY_API_KEY ? 'SET' : 'NOT SET'}`);
+      console.warn(`   Check: DIFY_BASE_URL=${process.env.DIFY_BASE_URL || 'NOT SET (using default)'}`);
+      console.warn(`   Check: DIFY_APP_TYPE=${process.env.DIFY_APP_TYPE || 'NOT SET (using chatflow)'}`);
+
       // Fallback response when AI is not configured
       conversation.addMessage({
         role: 'assistant',
         content: 'Xin lỗi, dịch vụ AI hiện không khả dụng. Vui lòng thử lại sau hoặc liên hệ quản trị viên.'
       });
-      
+
       conversation.generateTitle();
       await conversation.save();
 
@@ -166,11 +171,17 @@ const sendMessage = async (req, res) => {
           _id: conversation._id,
           messages: conversation.messages.slice(-2) // Return last 2 messages
         },
-        aiServiceAvailable: false
+        aiServiceAvailable: false,
+        error: 'Dify service not configured. Please set DIFY_API_KEY in environment variables.'
       });
     }
 
     // Call Dify API
+    console.log(`🤖 AI Chat: Sending message to Dify for user ${userId}`);
+    console.log(`   Conversation ID: ${conversation.difyConversationId || '(new)'}`);
+    console.log(`   Message: ${message.substring(0, 50)}...`);
+    console.log(`   App Type: ${difyService.getAppType()}`);
+
     const aiResponse = await difyService.sendChatMessage({
       query: message.trim(),
       userId: userId.toString(),
@@ -178,15 +189,25 @@ const sendMessage = async (req, res) => {
       inputs
     });
 
+    console.log(`🤖 AI Chat: Dify response received`);
+    console.log(`   Success: ${aiResponse.success}`);
+    if (!aiResponse.success) {
+      console.error(`   Error: ${aiResponse.message || aiResponse.error}`);
+      console.error(`   Details:`, aiResponse);
+    } else {
+      console.log(`   Answer length: ${aiResponse.answer?.length || 0} chars`);
+      console.log(`   Dify Conversation ID: ${aiResponse.conversationId || 'N/A'}`);
+    }
+
     if (!aiResponse.success) {
       // Add error message
       conversation.addMessage({
         role: 'assistant',
         content: aiResponse.message || 'Xin lỗi, có lỗi xảy ra. Vui lòng thử lại.'
       });
-      
+
       await conversation.save();
-      
+
       return res.status(500).json({
         message: aiResponse.message,
         conversation: {
@@ -211,7 +232,7 @@ const sendMessage = async (req, res) => {
 
     // Generate title from first message
     conversation.generateTitle();
-    
+
     await conversation.save();
 
     res.json({
@@ -304,8 +325,8 @@ const sendMessageStreaming = async (req, res) => {
         conversation.generateTitle();
         await conversation.save();
 
-        res.write(`data: ${JSON.stringify({ 
-          type: 'complete', 
+        res.write(`data: ${JSON.stringify({
+          type: 'complete',
           answer: data.answer,
           conversationId: conversation._id,
           messageId: data.messageId
@@ -352,8 +373,8 @@ const updateConversation = async (req, res) => {
     // Also update in Dify if conversation exists there
     if (title && conversation.difyConversationId) {
       difyService.renameConversation(
-        conversation.difyConversationId, 
-        title, 
+        conversation.difyConversationId,
+        title,
         userId.toString()
       ).catch(err => console.error('Dify rename error:', err));
     }
@@ -391,7 +412,7 @@ const deleteConversation = async (req, res) => {
     // Also delete in Dify
     if (conversation.difyConversationId) {
       difyService.deleteConversation(
-        conversation.difyConversationId, 
+        conversation.difyConversationId,
         userId.toString()
       ).catch(err => console.error('Dify delete error:', err));
     }
@@ -441,8 +462,8 @@ const submitFeedback = async (req, res) => {
     // Submit to Dify
     const result = await difyService.submitFeedback(messageId, rating, userId.toString());
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'Feedback submitted',
       difySubmitted: result.success
     });
@@ -479,18 +500,55 @@ const getSuggestions = async (req, res) => {
 const getAIStatus = async (req, res) => {
   try {
     const isAvailable = difyService.isAvailable();
+    const appType = difyService.getAppType();
     let appInfo = null;
+    let errorDetails = null;
+
+    // Check environment variables
+    const envCheck = {
+      DIFY_API_KEY: !!process.env.DIFY_API_KEY,
+      DIFY_BASE_URL: process.env.DIFY_BASE_URL || 'https://api.dify.ai/v1 (default)',
+      DIFY_APP_TYPE: process.env.DIFY_APP_TYPE || 'chatflow (default)',
+      DIFY_DEBUG: process.env.DIFY_DEBUG === 'true'
+    };
 
     if (isAvailable) {
-      appInfo = await difyService.getAppInfo();
+      try {
+        appInfo = await difyService.getAppInfo();
+      } catch (error) {
+        console.error('Error getting Dify app info:', error);
+        errorDetails = {
+          message: 'Failed to connect to Dify API',
+          error: error.message
+        };
+      }
+    } else {
+      errorDetails = {
+        message: 'Dify service not configured',
+        reason: 'DIFY_API_KEY is not set in environment variables',
+        instructions: [
+          '1. Get API key from Dify dashboard: https://dify.ai',
+          '2. Go to your App -> API -> API Key',
+          '3. Copy the API key',
+          '4. Add to .env: DIFY_API_KEY=your-api-key-here',
+          '5. Restart the server'
+        ]
+      };
     }
 
     res.json({
       available: isAvailable,
-      appInfo: appInfo?.success ? appInfo : null
+      appType: appType,
+      environment: envCheck,
+      appInfo: appInfo?.success ? appInfo.data : null,
+      error: errorDetails
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to get AI status' });
+    console.error('Get AI status error:', error);
+    res.status(500).json({
+      message: 'Failed to get AI status',
+      error: error.message
+    });
   }
 };
 
@@ -521,10 +579,10 @@ const clearConversation = async (req, res) => {
     conversation.difyConversationId = null;
     conversation.title = 'New AI Chat';
     conversation.metadata = { totalMessages: 1, totalTokensUsed: 0 };
-    
+
     await conversation.save();
 
-    res.json({ 
+    res.json({
       message: 'Conversation cleared',
       conversation
     });

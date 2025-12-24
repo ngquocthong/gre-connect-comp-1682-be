@@ -42,22 +42,60 @@ class EventService {
 
     const { title, description, date, startTime, endTime, location, type, color, recurrence } = data;
 
-    const event = await Event.create({
-      createdBy: userId,
-      title,
-      description,
-      date,
-      startTime,
-      endTime,
-      location,
-      type,
-      color,
-      recurrence,
-      participants: [userId]
-    });
+    // Validate required fields
+    if (!title || !title.trim()) {
+      throw new Error('Title is required');
+    }
+    if (!date) {
+      throw new Error('Date is required');
+    }
+    if (!startTime) {
+      throw new Error('Start time is required');
+    }
+    if (!endTime) {
+      throw new Error('End time is required');
+    }
 
-    await event.populate('createdBy', 'firstName lastName profilePicture username role');
-    return event;
+    // Validate date is valid
+    const eventDate = new Date(date);
+    if (isNaN(eventDate.getTime())) {
+      throw new Error('Invalid date format');
+    }
+
+    // Validate time format (HH:MM)
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(startTime)) {
+      throw new Error('Invalid start time format. Use HH:MM (24-hour format)');
+    }
+    if (!timeRegex.test(endTime)) {
+      throw new Error('Invalid end time format. Use HH:MM (24-hour format)');
+    }
+
+    try {
+      const event = await Event.create({
+        createdBy: userId,
+        title: title.trim(),
+        description: description?.trim() || '',
+        date: eventDate,
+        startTime,
+        endTime,
+        location: location?.trim() || '',
+        type: type || 'other',
+        color: color || '#3b82f6',
+        recurrence: recurrence || 'none',
+        participants: [userId]
+      });
+
+      await event.populate('createdBy', 'firstName lastName profilePicture username role');
+      return event;
+    } catch (error) {
+      // Handle duplicate key errors or other MongoDB errors
+      if (error.name === 'ValidationError') {
+        const errors = Object.values(error.errors).map(err => err.message).join(', ');
+        throw new Error(`Validation error: ${errors}`);
+      }
+      throw error;
+    }
   }
 
   async updateEvent(eventId, userId, userRole, updates) {

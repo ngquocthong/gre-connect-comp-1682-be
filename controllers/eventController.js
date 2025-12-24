@@ -26,6 +26,35 @@ const createEvent = async (req, res) => {
   try {
     const { title, description, date, startTime, endTime, location, type, color, recurrence } = req.body;
 
+    console.log(`📅 Creating event: ${title} by user ${req.user._id} (${req.user.role})`);
+
+    // Validate date is not in the past (optional business rule)
+    const eventDate = new Date(date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    eventDate.setHours(0, 0, 0, 0);
+    
+    if (eventDate < today) {
+      return res.status(400).json({ 
+        message: 'Cannot create events in the past',
+        field: 'date'
+      });
+    }
+
+    // Validate time format and logic
+    const [startHour, startMin] = startTime.split(':').map(Number);
+    const [endHour, endMin] = endTime.split(':').map(Number);
+    
+    const startMinutes = startHour * 60 + startMin;
+    const endMinutes = endHour * 60 + endMin;
+    
+    if (endMinutes <= startMinutes) {
+      return res.status(400).json({ 
+        message: 'End time must be after start time',
+        field: 'endTime'
+      });
+    }
+
     const event = await eventService.createEvent(req.user._id, req.user.role, {
       title,
       description,
@@ -33,17 +62,40 @@ const createEvent = async (req, res) => {
       startTime,
       endTime,
       location,
-      type,
-      color,
-      recurrence
+      type: type || 'other',
+      color: color || '#3b82f6',
+      recurrence: recurrence || 'none'
     });
 
-    res.status(201).json(event);
+    console.log(`✅ Event created successfully: ${event._id}`);
+
+    res.status(201).json({
+      message: 'Event created successfully',
+      event
+    });
   } catch (error) {
+    console.error('❌ Create event error:', error);
+    
     if (error.message === 'Only teachers and staff can create events') {
       return res.status(403).json({ message: error.message });
     }
-    res.status(500).json({ message: error.message });
+    
+    // Handle Mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => ({
+        field: err.path,
+        message: err.message
+      }));
+      return res.status(400).json({ 
+        message: 'Validation error',
+        errors 
+      });
+    }
+
+    res.status(500).json({ 
+      message: error.message || 'Failed to create event',
+      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+    });
   }
 };
 

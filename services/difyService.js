@@ -21,10 +21,13 @@ class DifyService {
             console.log('✅ Dify AI Service initialized');
             console.log(`   App Type: ${this.appType}`);
             console.log(`   Base URL: ${this.baseUrl}`);
+            console.log(`   API Key: ${this.apiKey.substring(0, 10)}...${this.apiKey.substring(this.apiKey.length - 4)}`);
             console.log(`   Debug Mode: ${this.debug ? 'ON' : 'OFF'}`);
             return true;
         }
         console.warn('⚠️  Dify API key not found. AI Chat service disabled.');
+        console.warn('   To enable: Set DIFY_API_KEY in your .env file');
+        console.warn('   Get API key from: https://dify.ai -> Your App -> API -> API Key');
         return false;
     }
 
@@ -74,8 +77,10 @@ class DifyService {
                 user: userId
             };
 
+            console.log(`🤖 Dify Chatflow: Sending request to ${endpoint}`);
             this.log('Chatflow Request:', { endpoint, body });
 
+            const startTime = Date.now();
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
@@ -85,11 +90,19 @@ class DifyService {
                 body: JSON.stringify(body)
             });
 
+            const responseTime = Date.now() - startTime;
+            console.log(`🤖 Dify Chatflow: Response received in ${responseTime}ms, Status: ${response.status}`);
+
             const data = await response.json();
             this.log('Chatflow Response:', { status: response.status, data });
 
             if (!response.ok) {
-                console.error('Dify Chatflow Error:', data);
+                console.error('❌ Dify Chatflow Error:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    error: data.message || data.error,
+                    details: data
+                });
                 return {
                     success: false,
                     error: 'AI service error',
@@ -97,6 +110,11 @@ class DifyService {
                     statusCode: response.status,
                     details: data
                 };
+            }
+
+            console.log(`✅ Dify Chatflow: Success! Answer length: ${data.answer?.length || 0} chars`);
+            if (data.conversation_id) {
+                console.log(`   Conversation ID: ${data.conversation_id}`);
             }
 
             return {
@@ -110,11 +128,15 @@ class DifyService {
                 }
             };
         } catch (error) {
-            console.error('Dify Chatflow Error:', error.message);
+            console.error('❌ Dify Chatflow Connection Error:', error.message);
+            console.error('   Stack:', error.stack);
+            if (error.code) {
+                console.error('   Error Code:', error.code);
+            }
             return {
                 success: false,
                 error: 'Connection error',
-                message: 'Failed to connect to AI service. Please try again.'
+                message: `Failed to connect to AI service: ${error.message}. Please check DIFY_BASE_URL and network connection.`
             };
         }
     }
